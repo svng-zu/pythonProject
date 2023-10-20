@@ -20,7 +20,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 urlpatterns = [
     path("signup/", SignupAPIView.as_view(), name = 'signup'), #signup
     path("auth/", LoginView.as_view(), name ='login'), #login
-    path("logout/", LogoutView.as_view(), name = 'logout'), #logout
+    # path("logout/", LogoutView.as_view(), name = 'logout'), #logout
 
     path('token/', TokenRefreshView.as_view(), name = 'token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name = 'token_refresh'),

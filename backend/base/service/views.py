@@ -9,7 +9,7 @@ import jwt
 from django.contrib.auth import authenticate
 from base.settings import SECRET_KEY
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.contrib.auth.hashers import check_password
 
 # class SignupAPIView(APIView):
 #     def post(self, request):
@@ -145,16 +145,68 @@ class SignupAPIView(APIView):
     
 #log in
 class LoginView(APIView):
+    # user 정보 확인
+    def get(self, request):
+        try:
+            #access token을 decode해서 유저 id 추출 -> 유저 식별
+            access = request.COOKIES['access']
+            payload = jwt.decode(access, SECRET_KEY, algorithms=['HS256'])
+            pk = payload.get('user_id')
+            user = get_object_or_404(User, pk = pk)
+            serializer = UserSerializer(instance=user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except(jwt.exceptions.ExpiredSignatureError):
+            #token 만료 시 토큰 갱신
+            data = {'refresh': request.COOKIES.get('refresh', None)}
+            serializer = TokenRefreshSerializer(data = data)
+            if serializer.is_valid(raise_exception=True):
+                access = serializer.data.get('access', None)
+                refresh = serializer.data.get('refresh', None)
+                payload = jwt.decode(access, SECRET_KEY, algorithms=['HS256'])
+                pk = payload.get('user_id')
+                serializer = UserSerializer(instance=user)
+                res = Response(serializer.data, status=status.HTTP_200_OK)
+                res.set_cookie('access', access)
+                res.set_cookie('refresh', refresh)
+                return res
+            return jwt.exceptions.InvalidTokenError
 
+        except(jwt.exceptions.InvalidTokenError):
+            #사용 불가 토큰의 경우
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    #log in
     def post(self, request):
-        user = authenticate(
-            email = request.data.get('email'),
-            password = request.data.get('password')
-        )
+
+        # user = authenticate(
+        #     email = request.data.get('email'),
+        #     password = request.data.get('password')
+        # )
+        email = request.data['email']
+        pw = request.data['password']
+
+        user = User.objects.filter(email = email).first()
+
+        #user 존재 X
+        if user is None:
+            return Response(
+                {"message": "Email Not exists."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        #pw wrong
+        if not check_password(pw, user.password):
+            return Response(
+                {"message": "Wrong Password"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         if user is not None:
             serializer = UserSerializer(user)
-            token = TokenObtainPairSerializer.get_token(user)
-            refresh_token = str(token)
+            token = TokenObtainPairSerializer.get_token(user) #refresh token 생성
+            refresh_token = str(token) #token 문자열화
             access_token = str(token.access_token)
             res = Response(
                 {
@@ -167,21 +219,36 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+            res.set_cookie("access",access_token, httponly= True) #post method로 login 했을때 생성된 token을 쿠키에 담아 전송
+            res.set_cookie("refresh", refresh_token, httponly=True)
             return res
         else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message":"login failed"},
+                 status=status.HTTP_400_BAD_REQUEST)
+    
+    #logout
+    def delete(self, request):
+        #cookie에 저장된 token 삭제 -> logout 처리
+        res = Response({
+            "message":"Log out success"
+        }, status=status.HTTP_202_ACCEPTED)
+        res.delete_cookie('accesss')
+        res.delete_cookie('refresh')
+        return res
         
     
-class LogoutView(APIView):
-    def post(self, request):
-        # serializer = UserSerializer(user)
-        refresh_token = request.data['refresh']
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-        res = Response(
-            {"message": "logout success"}, status=status.HTTP_200_OK
-        )
-        res.delete_cookie('jwt')
-        return res
-        #redirect('')
-        #return render(request, '#.html')
+# class LogoutView(APIView):
+#     def post(self, request):
+#         # serializer = UserSerializer(user)
+#         refresh_token = request.data['refresh']
+#         token = RefreshToken(refresh_token)
+#         token.blacklist()
+#         res = Response(
+#             {"message": "logout success"}, status=status.HTTP_200_OK
+#         )
+#         res.delete_cookie('jwt')
+#         return res
+#         #redirect('')
+#         #return render(request, '#.html')
