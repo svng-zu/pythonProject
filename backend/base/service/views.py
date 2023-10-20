@@ -208,6 +208,10 @@ class LoginView(APIView):
             token = TokenObtainPairSerializer.get_token(user) #refresh token 생성
             refresh_token = str(token) #token 문자열화
             access_token = str(token.access_token)
+
+            user.is_active = True
+            user.save()
+
             res = Response(
                 {
                     "user": serializer.data,
@@ -230,6 +234,10 @@ class LoginView(APIView):
     
     #logout
     def delete(self, request):
+        update_user = User.objects.get(email = request.data['email'])
+        update_user.is_active = False
+        update_user.save()
+
         #cookie에 저장된 token 삭제 -> logout 처리
         res = Response({
             "message":"Log out success"
