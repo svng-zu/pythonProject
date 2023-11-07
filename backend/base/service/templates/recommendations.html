@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recommended VOD</title>
+</head>
+<body>
+    <h1>Recommended VOD</h1>
+    <ul>
+        {% for vod in recommended_vod %}
+            <li>{{ vod.asset_nm }} - {{ vod.vod분류 }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

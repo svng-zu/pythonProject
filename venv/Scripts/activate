@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\USER\Desktop\web\venv"
+VIRTUAL_ENV="C:\Users\USER\Desktop\LG헬로비전\VOD 추천 서비스 개발\VOD_RECSYS\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

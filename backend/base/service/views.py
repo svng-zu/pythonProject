@@ -10,8 +10,47 @@ from django.contrib.auth import authenticate
 from base.settings import SECRET_KEY
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
+import pickle
+from django.http import HttpResponse
+from django.shortcuts import render
+from .forms import PickleUploadForm  # PickleUploadForm은 앞서 정의한 폼(Form) 클래스
+from .models import Video  # 데이터를 저장할 모델을 import
+from django.http import JsonResponse
+from .rec import similar_users, recommend_vod
 
-# class SignupAPIView(APIView):
+
+def upload_pickle(request):
+    if request.method == 'POST':
+        form = PickleUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            pickle_file = form.cleaned_data['pickle_file']
+
+            # Pickle 파일 처리
+            try:
+                with open(pickle_file, 'rb') as file:
+                    data = pickle.load(file)
+
+                    # 데이터베이스에 저장
+                    for item in data:
+                        video = Video(
+                            subsr=item['subsr'],
+                            asset_nm=item['asset_nm'],
+                            ct_cl=item['ct_cl'],
+                            genre_of_ct_cl=item['genre_of_ct_cl'],
+                            use_tms=item['use_tms'],
+                            strt_dt=item['strt_dt'],
+                            vod분류=item['vod분류'],
+                            day=item['day'],
+                            hour=item['hour']
+                        )
+                        video.save()
+
+                return HttpResponse('Pickle data has been successfully imported to the database.')
+            except Exception as e:
+                return HttpResponse(f'Error: {str(e)}', status=500)
+    else:
+        form = PickleUploadForm()
+    return render(request, 'upload_pickle.html', {'form': form})
 #     def post(self, request):
 #         serializer = UserSerializer(data = request.data)
 #         if serializer.is_valid():
@@ -115,6 +154,11 @@ from django.contrib.auth.hashers import check_password
 #         response.delete_cookie('access')
 #         response.delete_cookie('refresh')
 #         return response
+
+
+
+
+
 
 #회원 가입
 class SignupAPIView(APIView):
@@ -260,3 +304,39 @@ class LoginView(APIView):
 #         return res
 #         #redirect('')
 #         #return render(request, '#.html')
+
+def get_similar_users(request):
+    if request.method == 'GET':
+        user_id = request.GET.get('user_id', None)  # GET 요청에서 user_id를 가져옵니다.
+
+        if user_id:
+            similar_user_indices = similar_users(user_id)  # 수정한 함수 호출
+            return render(request, 'service/similar.html', {'similar_user_indices': similar_user_indices})
+        else:
+            return JsonResponse({'error': 'user_id parameter is missing'})
+    else:
+        return JsonResponse({'error': 'Only GET requests are allowed'})
+
+def get_recommendations(request):
+    if request.method == 'GET':
+        user_id = request.GET.get('user_id', None)  # GET 요청에서 user_id를 가져옵니다.
+
+        if user_id:
+            # 1. similar_users 함수를 사용하여 유사한 사용자 가져오기
+            similar_user_indices = similar_users(user_id)
+
+            if similar_user_indices:
+                # 2. recommend_vod 함수를 사용하여 추천 VOD 가져오기
+                recommended_vod = recommend_vod(user_id, similar_user_indices)
+
+                if not recommended_vod.empty:
+                    # 추천된 VOD가 있는 경우 응답으로 반환
+                    return render(request, 'serivce/recommendations.html', {'recommended_vod': recommended_vod.to_dict(orient='records')})
+                else:
+                    return JsonResponse({'error': 'No recommended VOD found for the user'})
+            else:
+                return JsonResponse({'error': 'No similar users found for the user'})
+        else:
+            return JsonResponse({'error': 'user_id parameter is missing'})
+    else:
+        return JsonResponse({'error': 'Only GET requests are allowed'})

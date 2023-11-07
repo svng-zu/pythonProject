@@ -46,3 +46,19 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = 'user'
+
+
+class Video(models.Model):
+    subsr = models.IntegerField()
+    asset_nm = models.CharField(max_length=255)
+    ct_cl = models.CharField(max_length=255)
+    genre_of_ct_cl = models.CharField(max_length=255)
+    use_tms = models.IntegerField()
+    strt_dt = models.DateTimeField()
+    vod분류 = models.CharField(max_length=255)
+    day = models.IntegerField()
+    hour = models.IntegerField()
+    
+
+    class Meta:
+        db_table = 'service_video'
